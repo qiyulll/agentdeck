@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+agentdeck.db
+*.log
+
+web/node_modules/
+web/dist/
+web/.npm-cache/
+
+.env
+.DS_Store
+*.msi

@@ -1,0 +1,284 @@
+:root {
+  color: #20252b;
+  background: #f5f7f9;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  align-items: center;
+  background: #1e5f74;
+  border: 0;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.topbar {
+  align-items: center;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 26px;
+}
+
+h2 {
+  font-size: 20px;
+}
+
+.topbar p,
+.detail-header p {
+  color: #66717d;
+  margin-top: 4px;
+}
+
+.token-box {
+  align-items: center;
+  background: white;
+  border: 1px solid #d8e0e7;
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+}
+
+.token-box input {
+  border: 1px solid #ccd5de;
+  border-radius: 5px;
+  min-width: 220px;
+  padding: 7px 8px;
+}
+
+.icon-button {
+  min-width: 36px;
+  padding: 0;
+  justify-content: center;
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 260px 300px minmax(0, 1fr);
+  min-height: calc(100vh - 112px);
+}
+
+.panel,
+.detail,
+.tool-panel,
+.audit-strip {
+  background: white;
+  border: 1px solid #dce3ea;
+  border-radius: 8px;
+}
+
+.panel,
+.tool-panel,
+.audit-strip {
+  padding: 12px;
+}
+
+.panel-title {
+  align-items: center;
+  color: #39424e;
+  display: flex;
+  font-weight: 700;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.list {
+  display: grid;
+  gap: 8px;
+}
+
+.list-item {
+  align-items: flex-start;
+  background: #f4f7fa;
+  border: 1px solid transparent;
+  color: #1f2933;
+  display: flex;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.list-item.active {
+  background: #e6f3f5;
+  border-color: #8ec7d4;
+}
+
+.session-item {
+  flex-direction: column;
+}
+
+.session-item small {
+  color: #6a7580;
+}
+
+.status {
+  border-radius: 999px;
+  color: white;
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+.status.healthy {
+  background: #25855a;
+}
+
+.status.degraded {
+  background: #b45f06;
+}
+
+.status.demo {
+  background: #5969a8;
+}
+
+.status.offline {
+  background: #7a3131;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 14px;
+}
+
+.detail-header {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  min-height: 0;
+}
+
+.terminal-host {
+  background: #101214;
+  border-radius: 6px;
+  height: 390px;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.send-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr auto;
+  margin-top: 10px;
+}
+
+.send-row input {
+  border: 1px solid #ccd5de;
+  border-radius: 6px;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.changed-files {
+  color: #334155;
+  margin: 0 0 10px;
+  padding-left: 18px;
+}
+
+.diff-view {
+  background: #111827;
+  border-radius: 6px;
+  color: #d6e2f0;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 12px;
+  height: 350px;
+  margin: 0;
+  overflow: auto;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
+.audit-strip {
+  margin-top: 12px;
+}
+
+.audit-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 90px 170px 1fr;
+  padding: 6px 0;
+  border-top: 1px solid #edf1f5;
+}
+
+.error-line,
+.warning {
+  background: #fff4e5;
+  border: 1px solid #f0c36d;
+  border-radius: 6px;
+  color: #713f12;
+  margin-bottom: 12px;
+  padding: 9px 10px;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-grid,
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .token-box {
+    flex-wrap: wrap;
+  }
+
+  .token-box input {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
