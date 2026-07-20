@@ -11,10 +11,16 @@
 在当前电脑运行：
 
 ```powershell
+.\agentdeck.bat
+```
+
+或者：
+
+```powershell
 F:\work\codex\web dashboard\scripts\start-hub-public.bat
 ```
 
-它会启动：
+推荐使用 `agentdeck.bat`。它会启动：
 
 - Hub API：`http://0.0.0.0:8000`
 - Web Dashboard：`http://127.0.0.1:5173`
@@ -75,14 +81,11 @@ pip install -r requirements.txt
 cd agentdeck
 source .venv/bin/activate
 
-export AGENTDECK_DEMO_MODE=false
-export AGENTDECK_NODE_ID=server-1
-export AGENTDECK_NODE_NAME="My Server"
-export AGENTDECK_NODE_BASE_URL="http://SERVER_TAILSCALE_IP:8101"
-export AGENTDECK_HUB_URL="http://100.x.y.z:8000"
-export AGENTDECK_NODE_TOKEN="dev-node-token"
-
-python -m uvicorn node_agent.main:app --host 0.0.0.0 --port 8101
+python scripts/agentdeck.py server-node \
+  --hub-url "http://100.x.y.z:8000" \
+  --node-base-url "http://SERVER_TAILSCALE_IP:8101" \
+  --node-id "server-1" \
+  --node-name "My Server"
 ```
 
 `SERVER_TAILSCALE_IP` 指服务器自己的 Tailscale IP，可以在服务器上运行：

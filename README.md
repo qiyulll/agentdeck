@@ -82,7 +82,21 @@ npm install
 npm run dev
 ```
 
-在当前 Windows 工作区，最可靠的方式是运行批处理脚本，它会打开 3 个常驻服务窗口：
+最简单的本机启动方式：
+
+```powershell
+.\agentdeck.bat
+```
+
+或者直接运行：
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\agentdeck.py local --demo
+```
+
+它只启动 Hub + Web 两个服务。本机 demo 和远程服务器接入都不需要启动本机 Node Agent。
+
+旧的三窗口启动方式仍然保留：
 
 ```powershell
 .\scripts\start-dev.bat
