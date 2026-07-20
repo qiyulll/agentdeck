@@ -1,4 +1,4 @@
-import { Activity, FileDiff, KeyRound, RefreshCw, Send, Server, TerminalSquare } from "lucide-react";
+import { Activity, FileDiff, KeyRound, Play, RefreshCw, Send, Server, TerminalSquare } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, eventUrl, getToken, setToken } from "./api";
 import { TerminalView } from "./TerminalView";
@@ -14,6 +14,9 @@ export function App() {
   const [diff, setDiff] = useState<DiffResponse | null>(null);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [prompt, setPrompt] = useState("");
+  const [newSessionName, setNewSessionName] = useState("Windows Codex");
+  const [newSessionCwd, setNewSessionCwd] = useState("");
+  const [newSessionCommand, setNewSessionCommand] = useState("codex");
   const [error, setError] = useState("");
 
   async function refresh() {
@@ -23,10 +26,10 @@ export function App() {
       setNodes(nextNodes);
       setSessions(nextSessions);
       setLogs(nextLogs);
-      if (!selectedNode && nextNodes[0]) {
+      if ((!selectedNode || !nextNodes.some((node) => node.id === selectedNode)) && nextNodes[0]) {
         setSelectedNode(nextNodes[0].id);
       }
-      if (!selectedSession && nextSessions[0]) {
+      if ((!selectedSession || !nextSessions.some((session) => session.id === selectedSession)) && nextSessions[0]) {
         setSelectedSession(nextSessions[0].id);
       }
     } catch (err) {
@@ -54,11 +57,22 @@ export function App() {
   async function loadSessionDetails(sessionId: string) {
     try {
       setError("");
-      const [nextCapture, nextDiff] = await Promise.all([api.capture(sessionId), api.diff(sessionId)]);
+      const nextCapture = await api.capture(sessionId);
       setCapture(nextCapture);
-      setDiff(nextDiff);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+    }
+    try {
+      const nextDiff = await api.diff(sessionId);
+      setDiff(nextDiff);
+    } catch (err) {
+      setDiff({
+        session_id: sessionId,
+        current_path: activeSession?.current_path ?? "",
+        changed_files: [],
+        diff: "",
+        error: err instanceof Error ? err.message : String(err)
+      });
     }
   }
 
@@ -77,11 +91,50 @@ export function App() {
     }
   }
 
+  async function sendEnter() {
+    if (!selectedSession) {
+      return;
+    }
+    try {
+      await api.send(selectedSession, "", true);
+      await loadSessionDetails(selectedSession);
+      const nextLogs = await api.logs();
+      setLogs(nextLogs);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function startManagedCodex() {
+    if (!selectedNode) {
+      setError("请先选择一个 Windows managed 节点。");
+      return;
+    }
+    if (!canCreateManaged) {
+      setError("当前选中的是演示节点。请先选择 Windows Local 节点，再启动 Windows Codex。");
+      return;
+    }
+    try {
+      setError("");
+      const session = await api.createManaged(selectedNode, {
+        name: newSessionName || "Windows Codex",
+        cwd: newSessionCwd,
+        command: newSessionCommand.trim().split(/\s+/)
+      });
+      await refresh();
+      setSelectedSession(session.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   const visibleSessions = useMemo(
     () => sessions.filter((session) => !selectedNode || session.node_id === selectedNode),
     [sessions, selectedNode]
   );
   const activeSession = sessions.find((session) => session.id === selectedSession);
+  const activeNode = nodes.find((node) => node.id === selectedNode);
+  const canCreateManaged = Boolean(activeNode && activeNode.status !== "demo" && !activeNode.base_url.startsWith("demo://"));
   const statusText: Record<string, string> = {
     healthy: "正常",
     degraded: "降级",
@@ -129,7 +182,13 @@ export function App() {
                 onClick={() => {
                   setSelectedNode(node.id);
                   const firstSession = sessions.find((session) => session.node_id === node.id);
-                  if (firstSession) setSelectedSession(firstSession.id);
+                  if (firstSession) {
+                    setSelectedSession(firstSession.id);
+                  } else {
+                    setSelectedSession("");
+                    setCapture(null);
+                    setDiff(null);
+                  }
                 }}
               >
                 <span>{node.name}</span>
@@ -156,6 +215,15 @@ export function App() {
               </button>
             ))}
           </div>
+          <div className="managed-create">
+            <input value={newSessionName} onChange={(event) => setNewSessionName(event.target.value)} placeholder="会话名" />
+            <input value={newSessionCwd} onChange={(event) => setNewSessionCwd(event.target.value)} placeholder="工作目录，留空为项目目录" />
+            <input value={newSessionCommand} onChange={(event) => setNewSessionCommand(event.target.value)} placeholder="启动命令，例如 codex" />
+            <button disabled={!canCreateManaged} onClick={() => void startManagedCodex()}>
+              <Play size={16} />
+              {canCreateManaged ? "启动 Windows Codex" : "请选择 Windows Local"}
+            </button>
+          </div>
         </aside>
 
         <section className="detail">
@@ -176,13 +244,23 @@ export function App() {
                 <TerminalSquare size={17} />
                 终端输出
               </div>
-              <TerminalView output={capture?.output ?? ""} />
+              <TerminalView sessionId={selectedSession} output={capture?.output ?? ""} />
               <div className="send-row">
-                <input value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="发送 prompt 到当前 tmux pane" />
+                <input value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="发送 prompt 到当前 Codex session" />
                 <button onClick={() => void sendPrompt()} disabled={!selectedSession || !prompt.trim()}>
                   <Send size={16} />
                   发送
                 </button>
+                <button onClick={() => void sendEnter()} disabled={!selectedSession}>
+                  Enter
+                </button>
+              </div>
+              <div className="key-row">
+                <button onClick={() => void api.send(selectedSession, "\u001b", false)} disabled={!selectedSession}>Esc</button>
+                <button onClick={() => void api.send(selectedSession, "\t", false)} disabled={!selectedSession}>Tab</button>
+                <button onClick={() => void api.send(selectedSession, "\u0003", false)} disabled={!selectedSession}>Ctrl+C</button>
+                <button onClick={() => void api.send(selectedSession, "\u001b[A", false)} disabled={!selectedSession}>↑</button>
+                <button onClick={() => void api.send(selectedSession, "\u001b[B", false)} disabled={!selectedSession}>↓</button>
               </div>
             </section>
 

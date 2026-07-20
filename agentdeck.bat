@@ -1,4 +1,3 @@
 @echo off
 cd /d "%~dp0"
-.\.venv\Scripts\python.exe .\scripts\agentdeck.py local --demo
-
+.\.venv\Scripts\python.exe .\scripts\agentdeck.py local --windows-node

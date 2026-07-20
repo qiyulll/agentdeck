@@ -43,12 +43,18 @@ tmux sessions and panes
 - SQLite：MVP 只需要保存 nodes、session snapshots 和 audit logs，用 SQLite 足够。
 - Tailscale：默认假设机器之间在私有网络内互通，不把控制面直接暴露到公网。
 - tmux-first：不改造 Codex CLI 会话，保留随时 `tmux attach` 回退到纯终端的能力。
+- WebSocket：用于 Live Terminal Mode 的逐键输入和实时输出；普通状态刷新仍保留 REST/SSE，避免把所有接口都复杂化。
+- pywinpty + ConPTY：Windows 原生没有 tmux，所以本机 Codex 会话通过 ConPTY 托管，尽量接近真实终端交互。
+- pyte：把 PTY 的 ANSI 输出解析成可展示的屏幕文本，减少前端直接处理控制序列的复杂度。
+- 局域网 / ZeroTier / Tailscale：手机端只需要浏览器访问 Dashboard，不单独开发 App；网络层优先使用私有网络方案。
 
 ## 当前 MVP 功能
 
 - Node Agent 扫描本机 tmux panes。
 - 通过 `tmux capture-pane` 读取最近输出。
 - 通过 `tmux send-keys` 向指定 pane 发送 prompt。
+- Windows managed node 使用 ConPTY 启动 Codex CLI，支持 Live Terminal Mode。
+- Web 端通过 xterm.js + WebSocket 逐键操作 Codex，支持 Enter、Esc、Tab、Ctrl+C 和方向键等终端交互。
 - Node 定时向 Hub 上报 heartbeat 和 session snapshots。
 - Hub 超过 30 秒未收到 heartbeat 时标记节点为 degraded。
 - Web 展示节点、session、terminal 输出、changed files、git diff 和 audit log。
@@ -119,6 +125,31 @@ http://127.0.0.1:5173
 docs/connect-server.md
 ```
 
+手机端监控和调配工作的步骤见：
+
+```text
+docs/mobile-access.md
+```
+
+Windows 本机 + Linux 服务器 + Android 手机的完整部署步骤见：
+
+```text
+docs/three-device-setup.md
+```
+
+如果手机不能使用 Tailscale，但和电脑在同一个 Wi-Fi，可以直接运行：
+
+```powershell
+.\agentdeck-mobile-lan.bat
+```
+
+如果页面里只看到“演示”节点，或者启动 Windows Codex 时提示 demo node 错误，先关闭所有 AgentDeck 启动窗口，然后运行：
+
+```powershell
+.\reset-agentdeck-data.bat
+.\agentdeck-mobile-lan.bat
+```
+
 ## Demo Mode
 
 默认启用 demo mode：
@@ -148,6 +179,11 @@ AGENTDECK_DEMO_MODE=true
 - `tmux send-keys` 简单可靠，但它只是模拟键盘输入，不理解 Agent 语义。
 - `git` 和 `tmux` 在不同机器上可能不存在，所以 Node Agent 会返回明确错误，而不是静默失败。
 - 浏览器原生 `EventSource` 不能设置 Authorization header，因此 SSE 事件流使用 query token。
+- Windows 上 Codex 输出可能出现 GBK / UTF-8 混杂导致的乱码，所以 managed provider 会尝试修复常见 mojibake，并在启动子进程时强制 UTF-8 环境。
+- Windows 不能 attach 到已经打开的 PowerShell / Windows Terminal 进程，因此 managed node 只管理由 AgentDeck 自己启动的 Codex 进程。
+- 旧 demo 数据会留在 SQLite 中，可能导致页面只看到演示节点；提供 `reset-agentdeck-data.bat` 用来清空本地状态后重新注册真实节点。
+- 手机访问时 Vite 和 Hub 必须监听 `0.0.0.0`，同时 Windows 防火墙要放行 `5173` 和 `8000`，否则页面能打开但 API 数据加载失败。
+- 不把 Dashboard 直接暴露公网：当前 token auth 足够个人私网使用，但还没有 RBAC、OAuth 和细粒度审计，公网部署必须额外加 Access 控制。
 
 ## 与相关项目对比
 

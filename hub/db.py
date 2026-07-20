@@ -163,6 +163,40 @@ class HubStore:
                     ),
                 )
 
+    def replace_sessions_for_node(self, node_id: str, sessions: list[SessionSnapshot]) -> None:
+        with self.connect() as conn:
+            conn.execute("DELETE FROM session_snapshots WHERE node_id = ?", (node_id,))
+            for item in sessions:
+                conn.execute(
+                    """
+                    INSERT INTO session_snapshots (
+                        id, node_id, tmux_session, tmux_window, tmux_pane, pane_title,
+                        current_path, command, status, last_seen_at, raw_metadata_json
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        item.id,
+                        item.node_id,
+                        item.tmux_session,
+                        item.tmux_window,
+                        item.tmux_pane,
+                        item.pane_title,
+                        item.current_path,
+                        item.command,
+                        item.status,
+                        item.last_seen_at.isoformat(),
+                        json.dumps(item.raw_metadata),
+                    ),
+                )
+
+    def delete_demo_data(self) -> None:
+        with self.connect() as conn:
+            demo_nodes = conn.execute("SELECT id FROM nodes WHERE base_url LIKE 'demo://%'").fetchall()
+            for row in demo_nodes:
+                conn.execute("DELETE FROM session_snapshots WHERE node_id = ?", (row["id"],))
+            conn.execute("DELETE FROM nodes WHERE base_url LIKE 'demo://%'")
+
     def list_sessions(self, node_id: str | None = None) -> list[SessionSnapshot]:
         query = "SELECT * FROM session_snapshots"
         args: tuple[str, ...] = ()
@@ -233,4 +267,3 @@ class HubStore:
             )
             for row in rows
         ]
-

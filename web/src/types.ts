@@ -48,3 +48,8 @@ export interface AuditLog {
   result: string;
 }
 
+export interface ManagedSessionCreate {
+  name: string;
+  cwd: string;
+  command: string[];
+}

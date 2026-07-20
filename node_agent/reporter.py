@@ -8,7 +8,7 @@ from node_agent.config import NodeSettings
 
 async def report_loop(settings: NodeSettings, provider) -> None:
     headers = {"Authorization": f"Bearer {settings.node_token}"}
-    async with httpx.AsyncClient(timeout=8.0) as client:
+    async with httpx.AsyncClient(timeout=8.0, trust_env=False) as client:
         while True:
             try:
                 heartbeat = NodeHeartbeat(
@@ -19,8 +19,12 @@ async def report_loop(settings: NodeSettings, provider) -> None:
                 )
                 await client.post(f"{settings.hub_url}/api/node/heartbeat", headers=headers, json=heartbeat.model_dump())
                 snapshots = [item.model_dump(mode="json") for item in provider.sessions()]
-                await client.post(f"{settings.hub_url}/api/node/session-snapshots", headers=headers, json=snapshots)
+                await client.post(
+                    f"{settings.hub_url}/api/node/session-snapshots",
+                    params={"node_id": settings.node_id},
+                    headers=headers,
+                    json=snapshots,
+                )
             except Exception:
                 pass
             await asyncio.sleep(settings.report_interval_seconds)
-

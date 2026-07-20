@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import signal
 import subprocess
 import sys
 import threading
+import time
+import urllib.request
 from pathlib import Path
 
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
@@ -46,6 +54,8 @@ def start(name: str, command: list[str], cwd: Path, env: dict[str, str]) -> subp
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         bufsize=1,
     )
     threading.Thread(target=stream_output, args=(name, process), daemon=True).start()
@@ -82,6 +92,32 @@ def run_processes(processes: list[subprocess.Popen[str]]) -> int:
         stop_all()
 
 
+def register_windows_node(args: argparse.Namespace) -> None:
+    payload = {
+        "id": args.windows_node_id,
+        "name": args.windows_node_name,
+        "base_url": f"http://127.0.0.1:{args.node_port}",
+        "status": "healthy",
+    }
+    body = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{args.hub_port}/api/node/heartbeat",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {args.node_token}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    for _ in range(20):
+        try:
+            urllib.request.urlopen(request, timeout=2).read()
+            return
+        except Exception:
+            time.sleep(0.5)
+    print("Warning: Windows node did not register with Hub yet. Use Refresh after a few seconds.")
+
+
 def run_local(args: argparse.Namespace) -> int:
     env = build_env(args)
     python = resolve_python()
@@ -95,14 +131,35 @@ def run_local(args: argparse.Namespace) -> int:
         ),
         start(
             "web",
-            [npm, "run", "dev", "--", "--host", "127.0.0.1", "--port", str(args.web_port)],
+            [npm, "run", "dev", "--", "--host", args.web_host, "--port", str(args.web_port)],
             WEB,
             env,
         ),
     ]
+    if args.windows_node:
+        node_env = env.copy()
+        node_env["AGENTDECK_DEMO_MODE"] = "false"
+        node_env["AGENTDECK_NODE_BACKEND"] = "managed"
+        node_env["AGENTDECK_NODE_ID"] = args.windows_node_id
+        node_env["AGENTDECK_NODE_NAME"] = args.windows_node_name
+        node_env["AGENTDECK_NODE_BASE_URL"] = f"http://127.0.0.1:{args.node_port}"
+        node_env["AGENTDECK_HUB_URL"] = f"http://127.0.0.1:{args.hub_port}"
+        processes.append(
+            start(
+                "windows-node",
+                [python, "-m", "uvicorn", "node_agent.main:app", "--host", "127.0.0.1", "--port", str(args.node_port)],
+                ROOT,
+                node_env,
+            )
+        )
+        register_windows_node(args)
     print("")
     print(f"AgentDeck local dashboard: http://127.0.0.1:{args.web_port}")
+    if args.web_host == "0.0.0.0":
+        print(f"Phone dashboard URL: http://<THIS_MACHINE_TAILSCALE_OR_LAN_IP>:{args.web_port}")
     print(f"Hub API for server nodes: http://<THIS_MACHINE_TAILSCALE_IP>:{args.hub_port}")
+    if args.windows_node:
+        print(f"Windows managed node: {args.windows_node_name} on http://127.0.0.1:{args.node_port}")
     print("Keep this window open. Press Ctrl+C to stop.")
     return run_processes(processes)
 
@@ -139,7 +196,12 @@ def main() -> int:
     local = subparsers.add_parser("local", help="Run Hub + Web on this computer")
     local.add_argument("--hub-port", type=int, default=8000)
     local.add_argument("--web-port", type=int, default=5173)
+    local.add_argument("--node-port", type=int, default=8101)
+    local.add_argument("--web-host", default="127.0.0.1", help="Use 0.0.0.0 to allow phone access")
     local.add_argument("--demo", action="store_true", help="Seed demo sessions")
+    local.add_argument("--windows-node", action="store_true", help="Run a Windows managed Codex node")
+    local.add_argument("--windows-node-id", default="windows-local")
+    local.add_argument("--windows-node-name", default="Windows Local")
     local.set_defaults(func=run_local)
 
     server = subparsers.add_parser("server-node", help="Run Node Agent on a server")
@@ -156,4 +218,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

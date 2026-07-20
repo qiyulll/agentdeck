@@ -9,10 +9,16 @@ def seed_demo(store: HubStore) -> None:
     nodes = [
         NodeHeartbeat(id="demo-macbook", name="主力开发机", base_url="demo://macbook", status="demo"),
         NodeHeartbeat(id="demo-wsl", name="WSL 开发环境", base_url="demo://wsl", status="demo"),
-        NodeHeartbeat(id="demo-lab", name="实验室工作站", base_url="demo://lab", status="demo"),
+        NodeHeartbeat(id="demo-lab", name="实验室工作站", base_url="demo://lab", status="healthy"),
     ]
     for node in nodes:
         store.upsert_node(node)
+    with store.connect() as conn:
+        stale_at = (now - timedelta(seconds=45)).isoformat()
+        conn.execute(
+            "UPDATE nodes SET last_seen_at = ?, updated_at = ? WHERE id = ?",
+            (stale_at, stale_at, "demo-lab"),
+        )
     sessions = [
         SessionSnapshot(
             id="demo-macbook:%1",

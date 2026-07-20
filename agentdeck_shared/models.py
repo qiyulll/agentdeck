@@ -43,8 +43,14 @@ class CaptureResponse(BaseModel):
 
 
 class SendRequest(BaseModel):
-    text: str = Field(min_length=1)
+    text: str = ""
     enter: bool = True
+
+
+class ManagedSessionCreate(BaseModel):
+    name: str = "Windows Codex"
+    cwd: str = ""
+    command: list[str] = Field(default_factory=lambda: ["codex"])
 
 
 class SendResponse(BaseModel):
@@ -71,4 +77,3 @@ class AuditLog(BaseModel):
     target: str
     request_preview: str
     result: str
-

@@ -9,10 +9,10 @@ class NodeSettings:
     hub_url: str = getenv("AGENTDECK_HUB_URL", "http://127.0.0.1:8000")
     node_token: str = getenv("AGENTDECK_NODE_TOKEN", "dev-node-token")
     demo_mode: bool = getenv("AGENTDECK_DEMO_MODE", "true").lower() in {"1", "true", "yes"}
+    backend: str = getenv("AGENTDECK_NODE_BACKEND", "tmux")
     report_interval_seconds: int = int(getenv("AGENTDECK_REPORT_INTERVAL_SECONDS", "5"))
 
 
 @lru_cache
 def get_settings() -> NodeSettings:
     return NodeSettings()
-

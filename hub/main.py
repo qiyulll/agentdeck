@@ -5,11 +5,13 @@ from datetime import timezone
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+import websockets
 
 from agentdeck_shared.auth import dashboard_auth, node_auth
-from agentdeck_shared.models import CaptureResponse, DiffResponse, NodeHeartbeat, SendRequest, SendResponse, SessionSnapshot
+from agentdeck_shared.models import CaptureResponse, DiffResponse, ManagedSessionCreate, NodeHeartbeat, SendRequest, SendResponse, SessionSnapshot
 from hub.config import get_settings
 from hub.db import HubStore, utc_now
 from hub.demo import demo_capture, demo_diff, demo_send, seed_demo
@@ -26,6 +28,8 @@ async def lifespan(_: FastAPI):
     if settings.demo_mode:
         seed_demo(store)
         await publish_event("demo.seeded", {"enabled": True})
+    else:
+        store.delete_demo_data()
     yield
 
 
@@ -87,6 +91,20 @@ async def get_session(session_id: str, _: DashboardAuth):
         return store.get_session(session_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Session not found") from None
+
+
+@app.post("/api/nodes/{node_id}/managed-sessions")
+async def create_managed_session(node_id: str, payload: ManagedSessionCreate, _: DashboardAuth):
+    try:
+        node = store.get_node(node_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Node not found") from None
+    if node.base_url.startswith("demo://"):
+        raise HTTPException(status_code=400, detail="Demo node cannot create managed sessions")
+    session = await node_client.create_managed(node.base_url, payload)
+    store.upsert_sessions([session])
+    await publish_event("sessions.updated", {"count": 1})
+    return session
 
 
 @app.get("/api/sessions/{session_id}/capture")
@@ -160,8 +178,11 @@ async def node_heartbeat(payload: NodeHeartbeat, _: NodeAuth):
 
 
 @app.post("/api/node/session-snapshots")
-async def node_session_snapshots(payload: list[SessionSnapshot], _: NodeAuth):
-    store.upsert_sessions(payload)
+async def node_session_snapshots(payload: list[SessionSnapshot], _: NodeAuth, node_id: str = Query(default="")):
+    if node_id:
+        store.replace_sessions_for_node(node_id, payload)
+    else:
+        store.upsert_sessions(payload)
     await publish_event("sessions.updated", {"count": len(payload)})
     return {"ok": True, "count": len(payload)}
 
@@ -171,3 +192,42 @@ def get_existing_session(session_id: str) -> SessionSnapshot:
         return store.get_session(session_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Session not found") from None
+
+
+@app.websocket("/api/sessions/{session_id}/terminal")
+async def terminal_proxy(session_id: str, websocket: WebSocket):
+    token = websocket.query_params.get("token", "")
+    if token != settings.dashboard_token:
+        await websocket.close(code=1008)
+        return
+    try:
+        session = store.get_session(session_id)
+        node = store.get_node(session.node_id)
+    except KeyError:
+        await websocket.close(code=1008)
+        return
+    if node.base_url.startswith("demo://"):
+        await websocket.close(code=1008)
+        return
+    node_ws = node.base_url.replace("http://", "ws://").replace("https://", "wss://")
+    node_ws = f"{node_ws}/sessions/{session_id}/terminal?token={settings.node_token}"
+    await websocket.accept()
+    try:
+        async with websockets.connect(node_ws, proxy=None) as upstream:
+            async def browser_to_node() -> None:
+                while True:
+                    data = await websocket.receive_text()
+                    await upstream.send(data)
+
+            async def node_to_browser() -> None:
+                async for data in upstream:
+                    await websocket.send_text(data)
+
+            await asyncio.gather(browser_to_node(), node_to_browser())
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        try:
+            await websocket.send_text(f"\r\n[AgentDeck terminal disconnected: {exc}]\r\n")
+        except Exception:
+            pass

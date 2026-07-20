@@ -1,16 +1,26 @@
 from fastapi.testclient import TestClient
 
+import hub.main as hub_main
+from hub.db import HubStore
+from hub.demo import seed_demo
 from hub.main import app
 
 
 TOKEN = {"Authorization": "Bearer dev-dashboard-token"}
 
 
-def test_demo_hub_main_flow():
+def test_demo_hub_main_flow(tmp_path, monkeypatch):
+    test_store = HubStore(str(tmp_path / "agentdeck-test.db"))
+    seed_demo(test_store)
+    monkeypatch.setattr(hub_main, "store", test_store)
+    monkeypatch.setattr(hub_main.settings, "demo_mode", True)
+
     with TestClient(app) as client:
         nodes = client.get("/api/nodes", headers=TOKEN)
         assert nodes.status_code == 200
-        assert len(nodes.json()) >= 2
+        nodes_payload = nodes.json()
+        assert len(nodes_payload) >= 2
+        assert any(node["status"] == "degraded" for node in nodes_payload)
 
         sessions = client.get("/api/sessions", headers=TOKEN)
         assert sessions.status_code == 200
@@ -35,4 +45,3 @@ def test_demo_hub_main_flow():
         logs = client.get("/api/audit-logs", headers=TOKEN)
         assert logs.status_code == 200
         assert logs.json()[0]["action"] == "send"
-

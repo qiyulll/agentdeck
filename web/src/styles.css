@@ -127,6 +127,21 @@ h2 {
   gap: 8px;
 }
 
+.managed-create {
+  border-top: 1px solid #edf1f5;
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.managed-create input {
+  border: 1px solid #ccd5de;
+  border-radius: 6px;
+  min-width: 0;
+  padding: 8px 9px;
+}
+
 .list-item {
   align-items: flex-start;
   background: #f4f7fa;
@@ -202,6 +217,7 @@ h2 {
   background: #101214;
   border-radius: 6px;
   height: 390px;
+  margin: 0;
   overflow: hidden;
   padding: 8px;
 }
@@ -209,8 +225,15 @@ h2 {
 .send-row {
   display: grid;
   gap: 8px;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   margin-top: 10px;
+}
+
+.key-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 8px;
 }
 
 .send-row input {
@@ -280,5 +303,50 @@ h2 {
     min-width: 0;
     width: 100%;
   }
+
+  .app-shell {
+    padding: 12px;
+  }
+
+  .panel {
+    max-height: 260px;
+    overflow: auto;
+  }
+
+  .terminal-host {
+    height: 300px;
+  }
+
+  .diff-view {
+    height: 260px;
+  }
+
+  .audit-row {
+    grid-template-columns: 72px 1fr;
+  }
+
+  .audit-row span:last-child {
+    grid-column: 1 / -1;
+  }
 }
 
+@media (max-width: 620px) {
+  h1 {
+    font-size: 22px;
+  }
+
+  .list-item {
+    min-height: 44px;
+  }
+
+  .detail-header,
+  .send-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  button {
+    justify-content: center;
+    width: 100%;
+  }
+}

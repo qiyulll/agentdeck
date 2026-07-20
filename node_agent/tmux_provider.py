@@ -20,7 +20,7 @@ class TmuxProvider:
 
     def run(self, args: list[str], cwd: str | None = None) -> str:
         self.ensure_tmux()
-        result = subprocess.run(["tmux", *args], cwd=cwd, capture_output=True, text=True, timeout=8)
+        result = subprocess.run(["tmux", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=8)
         if result.returncode != 0:
             raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "tmux command failed")
         return result.stdout
@@ -77,8 +77,8 @@ class TmuxProvider:
             return DiffResponse(session_id=session_id, current_path=current_path, changed_files=[], diff="", error="Path does not exist")
         if shutil.which("git") is None:
             return DiffResponse(session_id=session_id, current_path=current_path, changed_files=[], diff="", error="git is not available on PATH")
-        status = subprocess.run(["git", "status", "--short"], cwd=current_path, capture_output=True, text=True, timeout=8)
-        diff = subprocess.run(["git", "diff"], cwd=current_path, capture_output=True, text=True, timeout=8)
+        status = subprocess.run(["git", "status", "--short"], cwd=current_path, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=8)
+        diff = subprocess.run(["git", "diff"], cwd=current_path, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=8)
         if status.returncode != 0:
             error = status.stderr.strip() or "Directory is not a git repository"
             return DiffResponse(session_id=session_id, current_path=current_path, changed_files=[], diff="", error=error)
@@ -89,4 +89,3 @@ class TmuxProvider:
         if ":" not in session_id:
             raise ValueError("Session id must include node prefix and tmux pane id")
         return session_id.split(":", 1)[1]
-
